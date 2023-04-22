@@ -5,7 +5,7 @@ import { getServerSideConfig } from "@/app/config/server";
 
 class TokenStat {
   private counter = 0;
-  constructor(private accessCode: string) {}
+  constructor(private accessCode: string, private type: string) {}
 
   public add(value: number) {
     this.counter += value;
@@ -18,6 +18,7 @@ class TokenStat {
       const data = {
         amount: this.counter,
         code: this.accessCode,
+        type: this.type,
       };
       fetch(statUrl + "/api/entry", {
         method: "POST",
@@ -35,7 +36,7 @@ async function createStream(req: NextRequest) {
   const decoder = new TextDecoder();
 
   (async function stat() {
-    const reqStat = new TokenStat(req.headers.get("access-code") ?? "");
+    const reqStat = new TokenStat(req.headers.get("access-code") ?? "", "req");
 
     const json = await req.clone().json();
     json.messages.forEach((cur: any) => {
@@ -46,7 +47,7 @@ async function createStream(req: NextRequest) {
   })();
 
   const res = await requestOpenai(req);
-  const resStat = new TokenStat(req.headers.get("access-code") ?? "");
+  const resStat = new TokenStat(req.headers.get("access-code") ?? "", "res");
 
   const contentType = res.headers.get("Content-Type") ?? "";
   if (!contentType.includes("stream")) {
