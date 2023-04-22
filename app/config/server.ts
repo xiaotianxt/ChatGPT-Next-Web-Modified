@@ -38,5 +38,6 @@ export const getServerSideConfig = () => {
     needCode: ACCESS_CODES.size > 0,
     proxyUrl: process.env.PROXY_URL,
     isVercel: !!process.env.VERCEL,
+    statUrl: process.env.STAT_URL,
   };
 };
