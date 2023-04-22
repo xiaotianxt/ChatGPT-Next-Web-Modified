@@ -12,7 +12,7 @@ class TokenStat {
   }
 
   public async finish() {
-    // print the result
+    console.log("[Stat]", this.type, this.counter);
     const { statUrl } = getServerSideConfig();
     if (statUrl) {
       const data = {
