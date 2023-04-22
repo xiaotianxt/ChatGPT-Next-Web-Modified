@@ -1,12 +1,52 @@
 import { createParser } from "eventsource-parser";
 import { NextRequest } from "next/server";
 import { requestOpenai } from "../common";
+import { getServerSideConfig } from "@/app/config/server";
+
+class TokenStat {
+  private counter = 0;
+  constructor(private accessCode: string) {}
+
+  public add(value: number) {
+    this.counter += value;
+  }
+
+  public async finish() {
+    // print the result
+    const { statUrl } = getServerSideConfig();
+    if (statUrl) {
+      const data = {
+        amount: this.counter,
+        code: this.accessCode,
+      };
+      fetch(statUrl + "/api/entry", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+    }
+  }
+}
 
 async function createStream(req: NextRequest) {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
+  (async function stat() {
+    const reqStat = new TokenStat(req.headers.get("access-code") ?? "");
+
+    const json = await req.clone().json();
+    json.messages.forEach((cur: any) => {
+      reqStat.add(cur?.content?.length || 0);
+    });
+
+    reqStat.finish();
+  })();
+
   const res = await requestOpenai(req);
+  const resStat = new TokenStat(req.headers.get("access-code") ?? "");
 
   const contentType = res.headers.get("Content-Type") ?? "";
   if (!contentType.includes("stream")) {
@@ -25,14 +65,17 @@ async function createStream(req: NextRequest) {
           // https://beta.openai.com/docs/api-reference/completions/create#completions/create-stream
           if (data === "[DONE]") {
             controller.close();
+            resStat.finish();
             return;
           }
           try {
             const json = JSON.parse(data);
             const text = json.choices[0].delta.content;
             const queue = encoder.encode(text);
+            resStat.add(text?.length || 0);
             controller.enqueue(queue);
           } catch (e) {
+            resStat.finish();
             controller.error(e);
           }
         }
